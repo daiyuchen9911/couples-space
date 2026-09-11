@@ -220,6 +220,7 @@ async function sync() {
       if (op.action === 'delete') {
         const r = await sb('entries?id=eq.' + op.id, { method: 'DELETE' });
         if (r.ok) done.push(op);
+        else console.error('推送删除失败', r.status, await r.text());
       } else {
         const r = await sb('entries', {
           method: 'POST',
@@ -227,8 +228,9 @@ async function sync() {
           body: JSON.stringify(op.item)
         });
         if (r.ok) done.push(op);
+        else console.error('推送失败', r.status, await r.text());
       }
-    } catch (e) { console.warn(e); }
+    } catch (e) { console.error('推送异常', e); }
   }
   pending = pending.filter(op => !done.includes(op));
   // 拉取远端
@@ -246,9 +248,17 @@ async function sync() {
         items = [...map.values()];
       }
       saveLocal(); render();
-      setSub(pending.length ? `本地 ${pending.length} 条待同步` : '已同步 · ' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}));
+      setSub(pending.length ? `本地 ${pending.length} 条待同步 · 推送失败` : '已同步 · ' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}));
+    } else {
+      const errText = await res.text().catch(() => '');
+      setSub('同步失败 HTTP ' + res.status);
+      console.error('拉取失败', res.status, errText);
+      alert('同步失败（HTTP ' + res.status + '）：\n' + errText.slice(0, 200));
     }
-  } catch (e) { setSub('同步失败，稍后重试'); }
+  } catch (e) {
+    setSub('同步失败：无法连接');
+    console.error('拉取异常', e);
+  }
 }
 
 function saveLocal() {
