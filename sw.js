@@ -1,5 +1,5 @@
 // Service Worker：缓存 App Shell，离线可用
-const CACHE = 'couples-space-v1';
+const CACHE = 'couples-space-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -29,13 +29,12 @@ self.addEventListener('fetch', e => {
   // 仅处理同源 GET 请求；数据请求（Supabase）直接放行
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  // 网络优先：有网时拿最新版（改版立即生效），失败时回退缓存（离线可用）
   e.respondWith(
-    caches.match(e.request).then(cached =>
-      cached || fetch(e.request).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
-        return res;
-      })
-    )
+    fetch(e.request).then(res => {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copy));
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
