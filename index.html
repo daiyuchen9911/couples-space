@@ -633,6 +633,8 @@ function switchTab(tab) {
   $('#fab').style.display = (tab === 'home' || tab === 'memo' || tab === 'photo') ? '' : 'none';
   $('#pageTitle').textContent = { home: '我们的空间', memo: '备忘录', photo: '照片墙', board: '留言板', settings: '设置' }[tab];
   $('#btnSettings').style.display = tab === 'settings' ? 'none' : '';
+  // 切换后回到顶部，避免 iOS 在页面高度变化时滚动位置乱跳
+  window.scrollTo(0, 0);
 }
 $('#btnSettings').addEventListener('click', () => switchTab('settings'));
 
