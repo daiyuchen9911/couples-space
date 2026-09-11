@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>生成 App 图标</title>
+<style>
+body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 30px auto; padding: 0 20px; color: #3a2b30; }
+a.btn { display: inline-block; margin: 10px 10px 0 0; padding: 10px 18px; background: #ff7a9c; color: #fff; border-radius: 10px; text-decoration: none; }
+p { line-height: 1.7; color: #a08a90; font-size: 14px; }
+canvas { display: none; }
+</style>
+</head>
+<body>
+<h2>生成 App 图标</h2>
+<p>点击下面的按钮下载两个 PNG 文件，把它们放到本页所在的 icons 文件夹里（文件名保持 icon-192.png 和 icon-512.png），然后就可以删掉这个网页了。</p>
+<canvas id="c"></canvas>
+<div id="links"></div>
+<script>
+function make(size) {
+  const c = document.getElementById('c');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, '#ffa0b8'); g.addColorStop(1, '#ff7a9c');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+  // 画爱心
+  const cx = size / 2, cy = size * 0.45, s = size * 0.3;
+  ctx.fillStyle = '#e0295a';
+  ctx.beginPath();
+  for (let a = 0; a <= Math.PI * 2; a += 0.01) {
+    const x = 16 * Math.pow(Math.sin(a), 3);
+    const y = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a));
+    const px = cx + x * s / 16, py = cy + y * s / 16;
+    a === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath(); ctx.fill();
+  return c.toDataURL('image/png');
+}
+for (const size of [192, 512]) {
+  const a = document.createElement('a');
+  a.className = 'btn';
+  a.href = make(size);
+  a.download = `icon-${size}.png`;
+  a.textContent = `下载 icon-${size}.png`;
+  document.getElementById('links').appendChild(a);
+}
+</script>
+</body>
+</html>
