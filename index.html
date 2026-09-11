@@ -65,10 +65,27 @@ main { padding: 16px; }
   background: var(--pink); color: #fff; font-size: 28px; line-height: 1;
   box-shadow: 0 6px 16px rgba(232,74,111,.35); cursor: pointer; z-index: 11;
 }
+/* 旧版浏览器不支持 <dialog> 时的降级样式：模拟居中弹窗 */
+dialog.no-dialog-support {
+  position: fixed; inset: 0; margin: auto; display: none;
+  height: fit-content; z-index: 100; background: #fff;
+}
+dialog.no-dialog-support[open] { display: block; }
+dialog.no-dialog-support::backdrop { display: none; }
+dialog.no-dialog-support + .dlg-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; z-index: 99;
+}
+dialog.no-dialog-support[open] + .dlg-backdrop { display: block; }
+.dlg-backdrop { display: none; }
+.dlg-backdrop.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 99; }
+
 /* 弹窗 */
 dialog {
   border: none; border-radius: 20px; padding: 20px;
   width: min(92vw, 420px); background: #fff;
+  /* 居中显示（部分浏览器/旧版 iOS 不用默认的 margin:auto） */
+  margin: auto;
+  max-height: 85vh; max-height: 85dvh; overflow-y: auto;
 }
 dialog::backdrop { background: rgba(0,0,0,.35); }
 dialog h2 { font-size: 17px; margin-bottom: 14px; color: var(--pink-deep); }
@@ -121,6 +138,23 @@ textarea { min-height: 90px; resize: vertical; }
       <div class="big-num" id="loveDays">—</div>
       <div style="font-size:12px;color:var(--muted)" id="loveSince"></div>
     </div>
+    <div class="card" id="moodCard">
+      <div class="row" style="align-items:center">
+        <div style="font-size:13px;color:var(--muted)">💕 此刻心情</div>
+        <button class="badge" style="border:none;cursor:pointer" onclick="openMoodHistory()">历史 ›</button>
+      </div>
+      <div id="moodBox" style="display:flex;gap:10px;margin-top:10px"></div>
+    </div>
+    <div class="card" id="memoryCard">
+      <div class="row" style="align-items:center;cursor:pointer" onclick="toggleMemory()">
+        <div style="font-size:13px;color:var(--muted)">🎞️ 今日回忆</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="badge" style="border:none;cursor:pointer" onclick="event.stopPropagation();shuffleMemory()">换一张 ⟳</button>
+          <span id="memoryArrow" style="color:var(--muted);font-size:12px">▸</span>
+        </div>
+      </div>
+      <div id="memoryBox" style="margin-top:10px;display:none"></div>
+    </div>
     <div id="anniversaryList"></div>
   </main>
 </section>
@@ -135,9 +169,27 @@ textarea { min-height: 90px; resize: vertical; }
   <main><div class="grid" id="photoGrid"></div></main>
 </section>
 
+<!-- 留言板 -->
+<section id="tab-board" hidden>
+  <main>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input id="boardInput" placeholder="给 TA 留一句话…" maxlength="200" style="flex:1" onkeydown="if(event.key==='Enter')sendBoard()">
+      <button class="btn" style="width:auto;margin:0;padding:10px 18px" onclick="sendBoard()">💌</button>
+    </div>
+    <div id="boardList"></div>
+  </main>
+</section>
+
 <!-- 设置 -->
 <section id="tab-settings" hidden>
   <main>
+    <div class="card">
+      <h2 style="font-size:16px;color:var(--pink-deep);margin-bottom:4px">我的身份</h2>
+      <p class="hint">填你的昵称，用于区分你和伴侣的心情记录。两人填不同的名字。</p>
+      <label>我的昵称</label>
+      <input id="cfgName" placeholder="如：小猪 / 宝宝" maxlength="10">
+      <button class="btn" id="btnSaveName">保存</button>
+    </div>
     <div class="card">
       <h2 style="font-size:16px;color:var(--pink-deep);margin-bottom:4px">云同步设置</h2>
       <p class="hint">两人各自在设置里填入同一个 Supabase 地址和密钥，数据即自动同步。</p>
@@ -166,6 +218,7 @@ textarea { min-height: 90px; resize: vertical; }
   <button data-tab="home" class="active"><span class="ico">💗</span>首页</button>
   <button data-tab="memo"><span class="ico">📝</span>备忘</button>
   <button data-tab="photo"><span class="ico">📷</span>照片</button>
+  <button data-tab="board"><span class="ico">💬</span>留言</button>
   <button data-tab="settings"><span class="ico">⚙︎</span>设置</button>
 </nav>
 
@@ -180,21 +233,59 @@ textarea { min-height: 90px; resize: vertical; }
     <button class="btn ghost" type="button" id="dlgCancel">取消</button>
   </form>
 </dialog>
+<div class="dlg-backdrop" id="dlgBackdrop"></div>
 
 <!-- 照片查看 -->
 <dialog id="photoViewer" class="photo-viewer"></dialog>
 
+<!-- 心情选择 -->
+<dialog id="moodDlg">
+  <h2>现在的心情是…</h2>
+  <div id="moodEmojis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px"></div>
+  <input id="moodText" placeholder="想说的一句话（可选）" maxlength="50">
+  <button class="btn" id="btnSaveMood">记录</button>
+  <button class="btn ghost" type="button" id="moodCancel">取消</button>
+</dialog>
+
+<!-- 心情历史 -->
+<dialog id="moodHistDlg">
+  <h2>📖 心情历史</h2>
+  <div id="moodHistList" style="max-height:60vh;overflow-y:auto"></div>
+  <button class="btn ghost" type="button" id="moodHistClose">关闭</button>
+</dialog>
+
+<!-- 纪念日祝福 -->
+<dialog id="blessDlg">
+  <div id="blessContent" style="text-align:center;padding:8px 0"></div>
+  <button class="btn" type="button" id="blessClose">开心收下 🎁</button>
+</dialog>
+
 <script>
 /* ================= 配置与状态 ================= */
-const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date';
+const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date', LS_NAME = 'cs_name';
+const MOODS = ['🥰','😄','😊','😌','😐','😴','😢','😤','😫','🤒'];
 let cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null'); // {url, key}
 let loveDate = localStorage.getItem(LS_LOVE) || '';
+let myName = localStorage.getItem(LS_NAME) || '';
+let moodPick = null;   // 心情选择器当前选中 emoji
 let items = [];        // 全部条目 [{id,type,title,content,date,photo,created_at}]
 let pending = [];      // 离线待同步队列
 let currentTab = 'home';
 const $ = s => document.querySelector(s);
 const esc = s => (s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+
+/* 弹窗打开/关闭：不支持 <dialog> 的浏览器自动降级为居中浮层 */
+const dialogSupported = typeof HTMLDialogElement !== 'undefined' && 'showModal' in HTMLDialogElement.prototype;
+function openDlg(d) {
+  if (dialogSupported) d.showModal();
+  else { d.classList.add('no-dialog-support'); d.open = true; $('#dlgBackdrop').classList.add('show'); }
+}
+function closeDlg(d) {
+  if (dialogSupported) d.close();
+  else { d.open = false; $('#dlgBackdrop').classList.remove('show'); }
+}
+$('#dlgBackdrop')?.addEventListener('click', () => { closeDlg($('#dlg')); closeDlg($('#photoViewer')); });
 
 /* ================= Supabase REST ================= */
 function sb(path, opts = {}) {
@@ -295,10 +386,11 @@ function delItem(id) {
 function setSub(t) { $('#headerSub').textContent = t; }
 
 function render() {
-  renderHome(); renderMemo(); renderPhoto();
+  renderHome(); renderMemo(); renderPhoto(); renderBoard(); renderMemory();
 }
 
 function renderHome() {
+  renderMoods();
   if (loveDate) {
     const days = Math.floor((Date.now() - new Date(loveDate)) / 86400000);
     $('#loveDays').textContent = days + ' 天';
@@ -321,6 +413,185 @@ function renderHome() {
       ${a.content ? `<div class="body">${esc(a.content)}</div>` : ''}
     </div><button class="del" onclick="delItem('${a.id}')">✕</button></div></div>`;
   }).join('') : '<div class="empty">还没有纪念日，点右下角 ＋ 添加</div>';
+}
+
+/* ================= 心情 ================= */
+function moods() { return items.filter(i => i.type === 'mood'); }
+
+function renderMoods() {
+  const all = moods();
+  // 收集出现过的昵称（保证对方即使还没记录也显示占位）
+  const names = [...new Set([myName, ...all.map(m => m.title)].filter(Boolean))];
+  $('#moodBox').innerHTML = names.map(n => {
+    const m = all.find(x => x.title === n);
+    const isMe = n === myName;
+    const time = m ? timeAgo(m.created_at) : '';
+    return `<div style="flex:1;text-align:center;padding:10px;border-radius:12px;background:#fffafc;${isMe ? 'cursor:pointer' : ''}" ${isMe ? `onclick="openMoodDlg()"` : ''}>
+      <div style="font-size:34px;line-height:1.2">${m ? m.note : '🫥'}</div>
+      <div style="font-size:12px;font-weight:600;margin-top:4px">${esc(n)}${isMe ? ' <span style="color:var(--muted);font-weight:400">(点我改)</span>' : ''}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${m?.content ? esc(m.content) : time}</div>
+      ${m?.content && time ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">${time}</div>` : ''}
+    </div>`;
+  }).join('') || '<div class="empty" style="padding:10px">到设置页填昵称后即可记录心情</div>';
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 60) return '刚刚';
+  if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
+  if (s < 86400) return Math.floor(s / 3600) + ' 小时前';
+  return new Date(iso).toLocaleDateString('zh-CN');
+}
+
+function openMoodDlg() {
+  if (!myName) { switchTab('settings'); alert('请先在设置页填写你的昵称'); return; }
+  moodPick = null;
+  $('#moodEmojis').innerHTML = MOODS.map(e =>
+    `<button type="button" style="font-size:28px;padding:8px 0;border:2px solid #ffd9e2;border-radius:10px;background:#fff" onclick="pickMood(this,'${e}')">${e}</button>`
+  ).join('');
+  $('#moodText').value = '';
+  openDlg($('#moodDlg'));
+}
+
+function pickMood(btn, emoji) {
+  moodPick = emoji;
+  document.querySelectorAll('#moodEmojis button').forEach(b => b.style.borderColor = '#ffd9e2');
+  btn.style.borderColor = 'var(--pink)';
+}
+
+$('#moodCancel').addEventListener('click', () => closeDlg($('#moodDlg')));
+
+$('#btnSaveMood').addEventListener('click', () => {
+  if (!moodPick) { alert('先选一个表情吧'); return; }
+  // 当前心情：固定 id = mood:昵称，重复记录互相覆盖（配合 upsert）
+  const item = {
+    id: 'mood:' + myName, type: 'mood', title: myName,
+    note: moodPick, content: $('#moodText').value.trim(),
+    created_at: new Date().toISOString()
+  };
+  items = items.filter(i => i.id !== item.id);
+  addItem(item);
+  // 同时写一条历史日志（不覆盖）
+  addItem({ id: uid(), type: 'mood_log', title: myName, note: moodPick,
+            content: item.content, created_at: item.created_at });
+  closeDlg($('#moodDlg'));
+});
+
+/* 心情历史 */
+function openMoodHistory() {
+  const logs = items.filter(i => i.type === 'mood_log')
+    .sort((a, b) => (a.created_at || '') < (b.created_at || '') ? 1 : -1)
+    .slice(0, 100);
+  $('#moodHistList').innerHTML = logs.length ? logs.map(l => `
+    <div class="row" style="align-items:center;padding:8px 0;border-bottom:1px solid #ffeef2">
+      <div style="font-size:26px">${l.note}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${esc(l.title)}</div>
+        ${l.content ? `<div style="font-size:12px;color:var(--muted)">${esc(l.content)}</div>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--muted)">${new Date(l.created_at).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`).join('')
+    : '<div class="empty">还没有历史记录</div>';
+  openDlg($('#moodHistDlg'));
+}
+$('#moodHistClose').addEventListener('click', () => closeDlg($('#moodHistDlg')));
+
+/* 纪念日祝福：打开 app 时检查今天是否命中 */
+function checkBlessing() {
+  const today = new Date();
+  const md = (d) => `${d.getMonth() + 1}-${d.getDate()}`;
+  const hits = [];
+  // 恋爱周年
+  if (loveDate) {
+    const ld = new Date(loveDate + 'T00:00:00');
+    if (md(ld) === md(today) && today > ld) {
+      const years = today.getFullYear() - ld.getFullYear();
+      hits.push(years > 0 ? `🎉 今天是你们在一起 <b>${years} 周年</b>！` : '🎉 今天是你们在一起的第一年纪念日！');
+    }
+  }
+  // 纪念日
+  for (const a of items.filter(i => i.type === 'anniversary' && i.date)) {
+    const d = new Date(a.date + 'T00:00:00');
+    if (md(d) === md(today)) {
+      const years = today.getFullYear() - d.getFullYear();
+      hits.push(`🎂 今天是 <b>${esc(a.title)}</b>${years > 0 ? ` ${years} 周年` : ''}！`);
+    }
+  }
+  if (!hits.length) return;
+  // 每天只提示一次
+  const key = 'cs_blessed_' + today.toISOString().slice(0, 10);
+  if (localStorage.getItem(key)) return;
+  localStorage.setItem(key, '1');
+  $('#blessContent').innerHTML = `
+    <div style="font-size:52px;line-height:1.3">🎊</div>
+    ${hits.map(h => `<div style="font-size:16px;margin-top:10px;line-height:1.6">${h}</div>`).join('')}
+    <div style="font-size:13px;color:var(--muted);margin-top:8px">去给 TA 留个言吧 💕</div>`;
+  openDlg($('#blessDlg'));
+}
+$('#blessClose').addEventListener('click', () => closeDlg($('#blessDlg')));
+
+/* ================= 今日回忆 ================= */
+let memoryShuffled = false;
+let memoryOpen = localStorage.getItem('cs_memory_open') === '1';
+function toggleMemory() {
+  memoryOpen = !memoryOpen;
+  localStorage.setItem('cs_memory_open', memoryOpen ? '1' : '0');
+  applyMemoryOpen();
+}
+function applyMemoryOpen() {
+  $('#memoryBox').style.display = memoryOpen ? '' : 'none';
+  $('#memoryArrow').textContent = memoryOpen ? '▾' : '▸';
+}
+function pickMemory() {
+  const photos = items.filter(i => i.type === 'photo' && i.photo);
+  if (!photos.length) return null;
+  if (memoryShuffled) return photos[Math.floor(Math.random() * photos.length)];
+  // 按日期做种子：每天固定一张，两人当天看到同一张
+  const seed = new Date().toISOString().slice(0, 10);
+  let h = 0;
+  for (const c of seed) h = (h * 31 + c.charCodeAt(0)) % 99991;
+  return photos[h % photos.length];
+}
+function renderMemory() {
+  const p = pickMemory();
+  $('#memoryBox').innerHTML = p ? `
+    <div style="cursor:pointer" onclick="viewPhoto('${p.id}')">
+      <img src="${p.photo}" style="width:100%;border-radius:12px;aspect-ratio:16/10;object-fit:cover;display:block">
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;text-align:center">
+        ${p.content || p.note ? esc(p.note || p.content) + ' · ' : ''}${(p.created_at || '').slice(0, 10) || '某段时光'}
+      </div>
+    </div>` : '<div class="empty" style="padding:10px">照片墙还没有照片，去传几张吧</div>';
+}
+function shuffleMemory() { memoryShuffled = true; renderMemory(); }
+
+/* ================= 留言板 ================= */
+function sendBoard() {
+  const input = $('#boardInput');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!myName) { switchTab('settings'); alert('请先在设置页填写你的昵称'); return; }
+  addItem({ id: uid(), type: 'board', title: myName, content: text, created_at: new Date().toISOString() });
+  input.value = '';
+}
+function renderBoard() {
+  const list = items.filter(i => i.type === 'board')
+    .sort((a, b) => (a.created_at || '') < (b.created_at || '') ? -1 : 1);
+  $('#boardList').innerHTML = list.length ? list.map(m => {
+    const mine = m.title === myName;
+    return `<div class="card" style="padding:10px 14px;${mine ? 'background:#fff0f4' : ''}">
+      <div class="row">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600;color:${mine ? 'var(--pink-deep)' : 'var(--muted)'}">
+            ${esc(m.title)}
+            <span style="font-weight:400;font-size:11px"> · ${(m.created_at || '').replace('T', ' ').slice(0, 16)}</span>
+          </div>
+          <div class="body" style="margin-top:4px">${esc(m.content)}</div>
+        </div>
+        <button class="del" onclick="delItem('${m.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">还没有留言，给 TA 写第一句吧 💌</div>';
 }
 
 function renderMemo() {
@@ -349,18 +620,18 @@ function viewPhoto(id) {
   if (!p) return;
   const d = $('#photoViewer');
   d.innerHTML = `<img src="${p.photo}">${p.note ? `<p style="font-size:13px;color:var(--muted);margin-top:8px;text-align:center">${esc(p.note)}</p>` : ''}`;
-  d.showModal();
+  openDlg(d);
 }
-$('#photoViewer').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+$('#photoViewer').addEventListener('click', e => { if (e.target === e.currentTarget) closeDlg(e.currentTarget); });
 
 /* ================= Tab 切换 ================= */
 document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  ['home', 'memo', 'photo', 'settings'].forEach(t => $('#tab-' + t).hidden = t !== tab);
+  ['home', 'memo', 'photo', 'board', 'settings'].forEach(t => $('#tab-' + t).hidden = t !== tab);
   $('#fab').style.display = (tab === 'home' || tab === 'memo' || tab === 'photo') ? '' : 'none';
-  $('#pageTitle').textContent = { home: '我们的空间', memo: '备忘录', photo: '照片墙', settings: '设置' }[tab];
+  $('#pageTitle').textContent = { home: '我们的空间', memo: '备忘录', photo: '照片墙', board: '留言板', settings: '设置' }[tab];
   $('#btnSettings').style.display = tab === 'settings' ? 'none' : '';
 }
 $('#btnSettings').addEventListener('click', () => switchTab('settings'));
@@ -378,10 +649,10 @@ $('#fab').addEventListener('click', () => {
   };
   $('#dlgTitle').textContent = { home: '💗 新纪念日', memo: '📝 新备忘', photo: '📷 新照片' }[currentTab];
   $('#dlgFields').innerHTML = fields[currentTab];
-  $('#dlg').showModal();
+  openDlg($('#dlg'));
 });
 
-$('#dlgCancel').addEventListener('click', () => $('#dlg').close());
+$('#dlgCancel').addEventListener('click', () => closeDlg($('#dlg')));
 $('#dlgForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = new FormData(e.target);
@@ -398,7 +669,7 @@ $('#dlgForm').addEventListener('submit', async e => {
       addItem({ id: uid(), type: 'memo', title: f.get('title'), content: f.get('content'), created_at: new Date().toISOString() });
     }
     $('#dlgSubmit').textContent = '保存';
-    $('#dlg').close();
+    closeDlg($('#dlg'));
   } catch (err) { alert('出错：' + err); $('#dlgSubmit').textContent = '保存'; }
 });
 
@@ -426,7 +697,15 @@ function loadCfgUI() {
   $('#cfgUrl').value = cfg?.url || '';
   $('#cfgKey').value = cfg?.key || '';
   $('#cfgLoveDate').value = loveDate;
+  $('#cfgName').value = myName;
 }
+$('#btnSaveName').addEventListener('click', () => {
+  const v = $('#cfgName').value.trim();
+  if (!v) { alert('昵称不能为空'); return; }
+  myName = v;
+  localStorage.setItem(LS_NAME, myName);
+  renderMoods();
+});
 $('#btnSaveCfg').addEventListener('click', () => {
   const url = $('#cfgUrl').value.trim().replace(/\/$/, '');
   const key = $('#cfgKey').value.trim();
@@ -453,10 +732,12 @@ try { items = JSON.parse(localStorage.getItem('cs_items') || '[]'); } catch { it
 try { pending = JSON.parse(localStorage.getItem('cs_pending') || '[]'); } catch { pending = []; }
 loadCfgUI();
 render();
-if (cfg) { setSub('同步中…'); sync(); }
+applyMemoryOpen();
+checkBlessing();
+if (cfg) { setSub('同步中…'); sync().then(checkBlessing); }
 else setSub('未配置同步 · 请到设置页填写');
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-document.addEventListener('visibilitychange', () => { if (!document.hidden && cfg) sync(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && cfg) sync().then(checkBlessing); });
 </script>
 </body>
 </html>
