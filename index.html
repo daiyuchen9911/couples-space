@@ -33,7 +33,7 @@ body {
 #views > section {
   position: absolute; inset: 0; overflow-y: auto;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  padding-bottom: calc(58px + env(safe-area-inset-bottom));
 }
 header {
   padding: calc(16px + env(safe-area-inset-top)) 20px 14px;
@@ -277,7 +277,7 @@ textarea { min-height: 90px; resize: vertical; }
 
 <script>
 /* ================= 配置与状态 ================= */
-const APP_VERSION = '1.6.0';   // 每次发布新版记得改这里
+const APP_VERSION = '1.6.1';   // 每次发布新版记得改这里
 const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date', LS_NAME = 'cs_name';
 const MOODS = ['🥰','😄','😊','😌','😐','😴','😢','😤','😫','🤒'];
 let cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null'); // {url, key}
