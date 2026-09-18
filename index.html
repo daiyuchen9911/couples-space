@@ -25,8 +25,15 @@
 body {
   font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
   background: var(--bg); color: var(--text);
-  padding-bottom: calc(70px + env(safe-area-inset-bottom));
   max-width: 640px; margin: 0 auto;
+  height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+}
+/* 每个标签页独立滚动：切换时视口不跳动，各自记住滚动位置 */
+#views { flex: 1; position: relative; overflow: hidden; width: 100%; }
+#views > section {
+  position: absolute; inset: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 header {
   padding: calc(16px + env(safe-area-inset-top)) 20px 14px;
@@ -130,6 +137,7 @@ textarea { min-height: 90px; resize: vertical; }
   <div class="sub" id="headerSub"></div>
 </header>
 
+<div id="views">
 <!-- 首页：纪念日 -->
 <section id="tab-home">
   <main>
@@ -219,6 +227,7 @@ textarea { min-height: 90px; resize: vertical; }
     </div>
   </main>
 </section>
+</div>
 
 <nav>
   <button data-tab="home" class="active"><span class="ico">💗</span>首页</button>
@@ -268,7 +277,7 @@ textarea { min-height: 90px; resize: vertical; }
 
 <script>
 /* ================= 配置与状态 ================= */
-const APP_VERSION = '1.5.0';   // 每次发布新版记得改这里
+const APP_VERSION = '1.6.0';   // 每次发布新版记得改这里
 const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date', LS_NAME = 'cs_name';
 const MOODS = ['🥰','😄','😊','😌','😐','😴','😢','😤','😫','🤒'];
 let cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null'); // {url, key}
@@ -278,7 +287,6 @@ let moodPick = null;   // 心情选择器当前选中 emoji
 let items = [];        // 全部条目 [{id,type,title,content,date,photo,created_at}]
 let pending = [];      // 离线待同步队列
 let currentTab = 'home';
-const scrollPos = {};   // 每个标签记住的滚动位置
 const $ = s => document.querySelector(s);
 const esc = s => (s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
@@ -635,16 +643,12 @@ $('#photoViewer').addEventListener('click', e => { if (e.target === e.currentTar
 /* ================= Tab 切换 ================= */
 document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 function switchTab(tab) {
-  const prevTab = currentTab;
   currentTab = tab;
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   ['home', 'memo', 'photo', 'board', 'settings'].forEach(t => $('#tab-' + t).hidden = t !== tab);
   $('#fab').style.display = (tab === 'home' || tab === 'memo' || tab === 'photo') ? '' : 'none';
   $('#pageTitle').textContent = { home: '我们的空间', memo: '备忘录', photo: '照片墙', board: '留言板', settings: '设置' }[tab];
   $('#btnSettings').style.display = tab === 'settings' ? 'none' : '';
-  // 记住每个标签的滚动位置：切走时保存，切回时恢复，视口不会跳动
-  if (prevTab && prevTab !== tab) scrollPos[prevTab] = window.scrollY;
-  requestAnimationFrame(() => window.scrollTo(0, scrollPos[tab] || 0));
 }
 $('#btnSettings').addEventListener('click', () => switchTab('settings'));
 
