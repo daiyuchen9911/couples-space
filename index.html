@@ -26,14 +26,16 @@ body {
   font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
   background: var(--bg); color: var(--text);
   max-width: 640px; margin: 0 auto;
-  height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+  height: 100vh;            /* 旧版 iOS 回退 */
+  height: 100dvh;           /* 新版：跟随工具栏动态高度 */
+  display: flex; flex-direction: column; overflow: hidden;
 }
 /* 每个标签页独立滚动：切换时视口不跳动，各自记住滚动位置 */
 #views { flex: 1; position: relative; overflow: hidden; width: 100%; }
 #views > section {
   position: absolute; inset: 0; overflow-y: auto;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-  padding-bottom: calc(54px + env(safe-area-inset-bottom));
+  padding-bottom: 16px;
 }
 header {
   padding: calc(16px + env(safe-area-inset-top)) 20px 14px;
@@ -42,9 +44,9 @@ header {
 }
 header h1 { font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
 header .sub { font-size: 12px; opacity: .9; margin-top: 2px; }
+/* 导航栏是布局中的一行（非悬浮），永远紧贴屏幕底部 */
 nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  display: flex; background: #fff;
+  display: flex; background: #fff; flex-shrink: 0;
   padding: 5px 0 calc(5px + env(safe-area-inset-bottom));
   border-top: 1px solid #ffe3ea; z-index: 10;
 }
@@ -67,7 +69,7 @@ main { padding: 16px 16px 4px; }
 .del { border: none; background: none; color: #e0b6bf; font-size: 16px; cursor: pointer; padding: 0 4px; }
 .big-num { font-size: 34px; font-weight: 800; color: var(--pink-deep); }
 .fab {
-  position: fixed; right: 20px; bottom: calc(84px + env(safe-area-inset-bottom));
+  position: fixed; right: 20px; bottom: calc(72px + env(safe-area-inset-bottom));
   width: 54px; height: 54px; border-radius: 50%; border: none;
   background: var(--pink); color: #fff; font-size: 28px; line-height: 1;
   box-shadow: 0 6px 16px rgba(232,74,111,.35); cursor: pointer; z-index: 11;
@@ -277,7 +279,7 @@ textarea { min-height: 90px; resize: vertical; }
 
 <script>
 /* ================= 配置与状态 ================= */
-const APP_VERSION = '1.6.2';   // 每次发布新版记得改这里
+const APP_VERSION = '1.7.0';   // 每次发布新版记得改这里
 const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date', LS_NAME = 'cs_name';
 const MOODS = ['🥰','😄','😊','😌','😐','😴','😢','😤','😫','🤒'];
 let cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null'); // {url, key}
