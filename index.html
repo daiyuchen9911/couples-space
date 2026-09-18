@@ -27,7 +27,7 @@ body {
   background: var(--bg); color: var(--text);
   max-width: 640px; margin: 0 auto;
   height: 100vh;            /* 旧版 iOS 回退 */
-  height: 100dvh;           /* 新版：跟随工具栏动态高度 */
+  height: 100svh;           /* 小视口高度：键盘弹出时不变，避免页面被顶起 */
   display: flex; flex-direction: column; overflow: hidden;
 }
 /* 每个标签页独立滚动：切换时视口不跳动，各自记住滚动位置 */
@@ -35,12 +35,12 @@ body {
 #views > section {
   position: absolute; inset: 0; overflow-y: auto;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-  padding-bottom: 16px;
 }
 header {
+  flex-shrink: 0;
   padding: calc(16px + env(safe-area-inset-top)) 20px 14px;
   background: linear-gradient(135deg, #ff9eb5, #ff7a9c);
-  color: #fff; position: sticky; top: 0; z-index: 10;
+  color: #fff;
 }
 header h1 { font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
 header .sub { font-size: 12px; opacity: .9; margin-top: 2px; }
@@ -56,7 +56,7 @@ nav button {
 }
 nav button .ico { font-size: 22px; display: block; line-height: 1.2; }
 nav button.active { color: var(--pink-deep); font-weight: 600; }
-main { padding: 16px 16px 4px; }
+main { padding: 16px 16px 20px; }
 .card {
   background: var(--card); border-radius: var(--radius);
   padding: 14px 16px; margin-bottom: 12px;
@@ -69,7 +69,8 @@ main { padding: 16px 16px 4px; }
 .del { border: none; background: none; color: #e0b6bf; font-size: 16px; cursor: pointer; padding: 0 4px; }
 .big-num { font-size: 34px; font-weight: 800; color: var(--pink-deep); }
 .fab {
-  position: fixed; right: 20px; bottom: calc(72px + env(safe-area-inset-bottom));
+  position: fixed; right: max(20px, calc(50vw - 320px + 20px));
+  bottom: calc(66px + env(safe-area-inset-bottom));
   width: 54px; height: 54px; border-radius: 50%; border: none;
   background: var(--pink); color: #fff; font-size: 28px; line-height: 1;
   box-shadow: 0 6px 16px rgba(232,74,111,.35); cursor: pointer; z-index: 11;
@@ -127,7 +128,7 @@ textarea { min-height: 90px; resize: vertical; }
 /* 设置页 */
 .hint { font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 10px; }
 .hint code { background: #ffeef2; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
-.empty { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 0; }
+.empty { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
 .badge { font-size: 11px; background: #ffeef2; color: var(--pink-deep); border-radius: 8px; padding: 2px 8px; }
 .photo-viewer img { width: 100%; border-radius: 12px; }
 </style>
@@ -279,7 +280,7 @@ textarea { min-height: 90px; resize: vertical; }
 
 <script>
 /* ================= 配置与状态 ================= */
-const APP_VERSION = '1.7.0';   // 每次发布新版记得改这里
+const APP_VERSION = '1.8.0';   // 每次发布新版记得改这里
 const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date', LS_NAME = 'cs_name';
 const MOODS = ['🥰','😄','😊','😌','😐','😴','😢','😤','😫','🤒'];
 let cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null'); // {url, key}
