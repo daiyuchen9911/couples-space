@@ -44,10 +44,11 @@ header {
 }
 header h1 { font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
 header .sub { font-size: 12px; opacity: .9; margin-top: 2px; }
-/* 导航栏是布局中的一行（非悬浮），永远紧贴屏幕底部 */
+/* 导航栏是布局中的一行（非悬浮），永远紧贴屏幕底部；
+   底部内边距只避开 Home 指示条的一部分，避免图标被抬得过高 */
 nav {
   display: flex; background: #fff; flex-shrink: 0;
-  padding: 5px 0 calc(5px + env(safe-area-inset-bottom));
+  padding: 5px 0 max(5px, calc(env(safe-area-inset-bottom) - 22px));
   border-top: 1px solid #ffe3ea; z-index: 10;
 }
 nav button {
@@ -70,7 +71,7 @@ main { padding: 16px 16px 20px; }
 .big-num { font-size: 34px; font-weight: 800; color: var(--pink-deep); }
 .fab {
   position: fixed; right: max(20px, calc(50vw - 320px + 20px));
-  bottom: calc(66px + env(safe-area-inset-bottom));
+  bottom: calc(44px + env(safe-area-inset-bottom));
   width: 54px; height: 54px; border-radius: 50%; border: none;
   background: var(--pink); color: #fff; font-size: 28px; line-height: 1;
   box-shadow: 0 6px 16px rgba(232,74,111,.35); cursor: pointer; z-index: 11;
@@ -280,7 +281,7 @@ textarea { min-height: 90px; resize: vertical; }
 
 <script>
 /* ================= 配置与状态 ================= */
-const APP_VERSION = '1.8.0';   // 每次发布新版记得改这里
+const APP_VERSION = '1.8.1';   // 每次发布新版记得改这里
 const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date', LS_NAME = 'cs_name';
 const MOODS = ['🥰','😄','😊','😌','😐','😴','😢','😤','😫','🤒'];
 let cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null'); // {url, key}
