@@ -281,7 +281,7 @@ textarea { min-height: 90px; resize: vertical; }
 
 <script>
 /* ================= 配置与状态 ================= */
-const APP_VERSION = '1.8.1';   // 每次发布新版记得改这里
+const APP_VERSION = '1.8.2';   // 每次发布新版记得改这里
 const LS_CFG = 'cs_cfg', LS_LOVE = 'cs_love_date', LS_NAME = 'cs_name';
 const MOODS = ['🥰','😄','😊','😌','😐','😴','😢','😤','😫','🤒'];
 let cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null'); // {url, key}
@@ -359,6 +359,7 @@ async function sync() {
         items = [...map.values()];
       }
       saveLocal(); render();
+      adoptRemoteCfg();
       setSub(pending.length ? `本地 ${pending.length} 条待同步 · 推送失败` : '已同步 · ' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}));
     } else {
       const errText = await res.text().catch(() => '');
@@ -738,7 +739,24 @@ $('#btnSaveLove').addEventListener('click', () => {
   loveDate = $('#cfgLoveDate').value;
   localStorage.setItem(LS_LOVE, loveDate);
   renderHome();
+  // 日期同时存到云端：重装 app 或换手机后自动恢复
+  if (cfg && loveDate) {
+    const item = { id: 'cfg:love', type: 'cfg', content: loveDate, created_at: new Date().toISOString() };
+    items = items.filter(i => i.id !== item.id);
+    addItem(item);
+  }
 });
+
+/* 从云端恢复恋爱日期（本地为空时自动采用云端值） */
+function adoptRemoteCfg() {
+  const remote = items.find(i => i.id === 'cfg:love');
+  if (!loveDate && remote?.content) {
+    loveDate = remote.content;
+    localStorage.setItem(LS_LOVE, loveDate);
+    $('#cfgLoveDate').value = loveDate;
+    renderHome();
+  }
+}
 $('#btnExport').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify({ loveDate, items, pending }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
